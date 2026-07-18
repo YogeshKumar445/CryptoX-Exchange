@@ -9,6 +9,7 @@ import com.cryptox.enums.UserRole;
 import com.cryptox.exception.ResourceAlreadyExistsException;
 import com.cryptox.exception.ResourceNotFoundException;
 import com.cryptox.repository.UserRepository;
+import com.cryptox.security.jwt.JwtService;
 import com.cryptox.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,15 +23,16 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Override
     public ApiResponse register(RegisterRequest request) {
 
-        if(userRepository.existsByEmail(request.getEmail())){
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new ResourceAlreadyExistsException("Email already exists");
         }
 
-        if(userRepository.existsByPhone(request.getPhone())){
+        if (userRepository.existsByPhone(request.getPhone())) {
             throw new ResourceAlreadyExistsException("Phone number already exists");
         }
 
@@ -53,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
+
     @Override
     public ApiResponse login(LoginRequest request) {
 
@@ -60,23 +63,11 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Invalid email or password"));
 
-        System.out.println("========== LOGIN DEBUG ==========");
-        System.out.println("Email From Request : " + request.getEmail());
-        System.out.println("Password From Request : " + request.getPassword());
-        System.out.println("Password From DB : " + user.getPassword());
-
-        boolean matched = passwordEncoder.matches(
-                request.getPassword(),
-                user.getPassword()
-        );
-        System.out.println("Password Matched : " + matched);
-        System.out.println("================================");
-
-
-
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new ResourceNotFoundException("Invalid email or password");
         }
+
+        String token = jwtService.generateToken(user.getEmail());
 
         LoginResponse response = LoginResponse.builder()
                 .id(user.getId())
@@ -84,6 +75,7 @@ public class AuthServiceImpl implements AuthService {
                 .lastName(user.getLastName())
                 .email(user.getEmail())
                 .role(user.getRole().name())
+                .token(token)
                 .build();
 
         return ApiResponse.builder()
@@ -93,4 +85,5 @@ public class AuthServiceImpl implements AuthService {
                 .timestamp(LocalDateTime.now())
                 .build();
     }
+
 }
