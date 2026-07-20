@@ -13,6 +13,12 @@ import java.math.BigDecimal;
 import com.cryptox.dto.response.ApiResponse;
 import com.cryptox.dto.response.WalletResponse;
 
+import com.cryptox.dto.response.ApiResponse;
+import com.cryptox.dto.response.WalletResponse;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {
@@ -59,6 +65,37 @@ public class WalletServiceImpl implements WalletService {
                 .success(true)
                 .message("Wallet fetched successfully")
                 .data(response)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse deposit(String email, BigDecimal amount) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
+        Wallet wallet = walletRepository.findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Wallet not found"));
+
+        wallet.setBalance(wallet.getBalance().add(amount));
+
+        walletRepository.save(wallet);
+
+        WalletResponse response = WalletResponse.builder()
+                .id(wallet.getId())
+                .userId(user.getId())
+                .balance(wallet.getBalance())
+                .updatedAt(wallet.getUpdatedAt())
+                .build();
+
+        return ApiResponse.builder()
+                .success(true)
+                .message("Amount deposited successfully")
+                .data(response)
+                .timestamp(LocalDateTime.now())
                 .build();
     }
 }

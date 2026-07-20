@@ -1,12 +1,12 @@
 package com.cryptox.controller;
 
+import com.cryptox.dto.request.DepositRequest;
 import com.cryptox.dto.response.ApiResponse;
 import com.cryptox.service.WalletService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/wallet")
@@ -21,5 +21,17 @@ public class WalletController {
         String email = authentication.getName();
 
         return walletService.getMyWallet(email);
+    }
+
+    @PostMapping("/deposit")
+    public ApiResponse deposit(
+            @Valid @RequestBody DepositRequest request,
+            Authentication authentication
+    ) {
+
+        return walletService.deposit(
+                authentication.getName(),
+                request.getAmount()
+        );
     }
 }

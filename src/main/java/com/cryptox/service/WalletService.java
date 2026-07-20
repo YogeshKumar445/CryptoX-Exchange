@@ -4,14 +4,15 @@ import com.cryptox.dto.response.ApiResponse;
 import com.cryptox.entity.User;
 import com.cryptox.entity.Wallet;
 
+import java.math.BigDecimal;
+
 public interface WalletService {
 
-    // Registration ke time wallet create karega
     Wallet createWallet(User user);
 
-    // Internal use ke liye
     Wallet getWallet(Long userId);
 
-    // JWT se logged-in user ka wallet fetch karega
     ApiResponse getMyWallet(String email);
+
+    ApiResponse deposit(String email, BigDecimal amount);
 }
