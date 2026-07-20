@@ -10,9 +10,10 @@ public interface WalletService {
 
     Wallet createWallet(User user);
 
-    Wallet getWallet(Long userId);
 
     ApiResponse getMyWallet(String email);
 
     ApiResponse deposit(String email, BigDecimal amount);
+
+    ApiResponse withdraw(String email, BigDecimal amount);
 }

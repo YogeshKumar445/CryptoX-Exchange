@@ -34,4 +34,15 @@ public class WalletController {
                 request.getAmount()
         );
     }
+
+    @PostMapping("/withdraw")
+    public ApiResponse withdraw(
+            Authentication authentication,
+            @Valid @RequestBody DepositRequest request
+    ) {
+
+        String email = authentication.getName();
+
+        return walletService.withdraw(email, request.getAmount());
+    }
 }

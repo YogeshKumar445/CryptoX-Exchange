@@ -13,11 +13,10 @@ import java.math.BigDecimal;
 import com.cryptox.dto.response.ApiResponse;
 import com.cryptox.dto.response.WalletResponse;
 
-import com.cryptox.dto.response.ApiResponse;
-import com.cryptox.dto.response.WalletResponse;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import com.cryptox.exception.InsufficientBalanceException;
 
 @Service
 @RequiredArgsConstructor
@@ -37,13 +36,6 @@ public class WalletServiceImpl implements WalletService {
         return walletRepository.save(wallet);
     }
 
-    @Override
-    public Wallet getWallet(Long userId) {
-
-        return walletRepository.findByUserId(userId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Wallet not found"));
-    }
     @Override
     public ApiResponse getMyWallet(String email) {
 
@@ -94,6 +86,41 @@ public class WalletServiceImpl implements WalletService {
         return ApiResponse.builder()
                 .success(true)
                 .message("Amount deposited successfully")
+                .data(response)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse withdraw(String email, BigDecimal amount) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
+        Wallet wallet = walletRepository.findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Wallet not found"));
+
+        if (wallet.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance");
+        }
+
+        wallet.setBalance(wallet.getBalance().subtract(amount));
+
+        walletRepository.save(wallet);
+
+        WalletResponse response = WalletResponse.builder()
+                .id(wallet.getId())
+                .userId(user.getId())
+                .balance(wallet.getBalance())
+                .updatedAt(wallet.getUpdatedAt())
+                .build();
+
+        return ApiResponse.builder()
+                .success(true)
+                .message("Amount withdrawn successfully")
                 .data(response)
                 .timestamp(LocalDateTime.now())
                 .build();
