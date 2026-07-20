@@ -47,6 +47,13 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+
+    @OneToOne(mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
+    private Wallet wallet;
+
+
     @PrePersist
     public void onCreate() {
         createdAt = LocalDateTime.now();

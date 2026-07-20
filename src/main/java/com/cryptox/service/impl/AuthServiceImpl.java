@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import com.cryptox.service.WalletService;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +25,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final WalletService walletService;
 
     @Override
     public ApiResponse register(RegisterRequest request) {
@@ -46,7 +48,9 @@ public class AuthServiceImpl implements AuthService {
                 .active(true)
                 .build();
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        walletService.createWallet(savedUser);
 
         return ApiResponse.builder()
                 .success(true)
