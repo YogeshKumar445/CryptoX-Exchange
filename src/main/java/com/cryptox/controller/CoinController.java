@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.cryptox.dto.external.CoinGeckoCoinResponse;
+
 @RestController
 @RequestMapping("/api/coins")
 @RequiredArgsConstructor
@@ -63,6 +65,36 @@ public class CoinController {
                         .success(true)
                         .message("Coin fetched successfully")
                         .data(coin)
+                        .timestamp(LocalDateTime.now())
+                        .build()
+        );
+    }
+
+    @GetMapping("/external")
+    public ResponseEntity<ApiResponse<List<CoinGeckoCoinResponse>>> fetchTopCoins() {
+
+        List<CoinGeckoCoinResponse> coins = coinService.fetchTopCoins();
+
+        return ResponseEntity.ok(
+                ApiResponse.<List<CoinGeckoCoinResponse>>builder()
+                        .success(true)
+                        .message("Top coins fetched successfully")
+                        .data(coins)
+                        .timestamp(LocalDateTime.now())
+                        .build()
+        );
+    }
+
+    @PostMapping("/sync")
+    public ResponseEntity<ApiResponse<String>> syncCoins() {
+
+        coinService.syncTopCoins();
+
+        return ResponseEntity.ok(
+                ApiResponse.<String>builder()
+                        .success(true)
+                        .message("Coins synchronized successfully")
+                        .data("Top coins updated")
                         .timestamp(LocalDateTime.now())
                         .build()
         );
