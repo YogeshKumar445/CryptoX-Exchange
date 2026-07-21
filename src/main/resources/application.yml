@@ -1,21 +1,6 @@
 spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/cryptox_db
-    username: root
-    password: Yogesh445#
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
+  profiles:
+    active: local
 
 server:
   port: 8080
-
-jwt:
-  secret: 7eD9Kq2M4pL8xT1vN5aR6cY3hJ9mB2sF8uW4zX1nQ7pL5kR9tV6yH3cM8dN2jA5
-  expiration: 86400000
