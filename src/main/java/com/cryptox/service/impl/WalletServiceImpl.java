@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import com.cryptox.exception.InsufficientBalanceException;
+import com.cryptox.service.TransactionService;
+import com.cryptox.enums.TransactionType;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
+    private final TransactionService transactionService;
 
     @Override
     public Wallet createWallet(User user) {
@@ -63,6 +66,7 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public ApiResponse deposit(String email, BigDecimal amount) {
+        System.out.println(">>> Deposit method called");
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -75,6 +79,13 @@ public class WalletServiceImpl implements WalletService {
         wallet.setBalance(wallet.getBalance().add(amount));
 
         walletRepository.save(wallet);
+        System.out.println(">>> Before saveTransaction");
+
+        transactionService.saveTransaction(
+                user,
+                amount,
+                TransactionType.DEPOSIT
+        );
 
         WalletResponse response = WalletResponse.builder()
                 .id(wallet.getId())
@@ -110,6 +121,12 @@ public class WalletServiceImpl implements WalletService {
         wallet.setBalance(wallet.getBalance().subtract(amount));
 
         walletRepository.save(wallet);
+
+        transactionService.saveTransaction(
+                user,
+                amount,
+                TransactionType.WITHDRAW
+        );
 
         WalletResponse response = WalletResponse.builder()
                 .id(wallet.getId())
