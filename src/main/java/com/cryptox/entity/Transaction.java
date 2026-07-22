@@ -24,8 +24,20 @@ public class Transaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+
+
     @Column(nullable = false, precision = 19, scale = 8)
     private BigDecimal amount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coin_id")
+    private Coin coin;
+
+    @Column
+    private Double quantity;
+
+    @Column(precision = 19, scale = 8)
+    private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -33,6 +45,8 @@ public class Transaction {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+
 
     @PrePersist
     public void onCreate() {
