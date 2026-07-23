@@ -19,5 +19,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByUserIdOrderByCreatedAtDesc(
             @Param("userId") Long userId
     );
+    long countByUserId(Long userId);
 
 }
