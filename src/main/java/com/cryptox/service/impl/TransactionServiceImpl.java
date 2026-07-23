@@ -2,6 +2,7 @@ package com.cryptox.service.impl;
 
 import com.cryptox.dto.response.ApiResponse;
 import com.cryptox.dto.response.TransactionResponse;
+import com.cryptox.entity.Coin;
 import com.cryptox.entity.Transaction;
 import com.cryptox.entity.User;
 import com.cryptox.enums.TransactionType;
@@ -11,6 +12,7 @@ import com.cryptox.repository.UserRepository;
 import com.cryptox.service.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,8 +44,8 @@ public class TransactionServiceImpl implements TransactionService {
 
 
 
-
     @Override
+    @Transactional(readOnly = true)
     public ApiResponse getMyTransactions(String email) {
 
         User user = userRepository.findByEmail(email)
@@ -54,13 +56,23 @@ public class TransactionServiceImpl implements TransactionService {
                 transactionRepository
                         .findByUserIdOrderByCreatedAtDesc(user.getId())
                         .stream()
-                        .map(transaction ->
-                                TransactionResponse.builder()
-                                        .id(transaction.getId())
-                                        .amount(transaction.getAmount())
-                                        .type(transaction.getType())
-                                        .createdAt(transaction.getCreatedAt())
-                                        .build())
+                        .map(transaction -> {
+
+                            Coin coin = transaction.getCoin();
+
+                            return TransactionResponse.builder()
+                                    .id(transaction.getId())
+                                    .coinId(coin != null ? coin.getId() : null)
+                                    .coinName(coin != null ? coin.getName() : null)
+                                    .symbol(coin != null ? coin.getSymbol() : null)
+                                    .imageUrl(coin != null ? coin.getImageUrl() : null)
+                                    .quantity(transaction.getQuantity())
+                                    .price(transaction.getPrice())
+                                    .amount(transaction.getAmount())
+                                    .type(transaction.getType())
+                                    .createdAt(transaction.getCreatedAt())
+                                    .build();
+                        })
                         .toList();
 
         return ApiResponse.builder()

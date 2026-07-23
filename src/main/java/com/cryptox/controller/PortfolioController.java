@@ -1,6 +1,7 @@
 package com.cryptox.controller;
 
 import com.cryptox.dto.request.BuyCoinRequest;
+import com.cryptox.dto.request.SellCoinRequest;
 import com.cryptox.dto.response.PortfolioResponse;
 import com.cryptox.service.PortfolioService;
 import jakarta.validation.Valid;
@@ -30,5 +31,14 @@ public class PortfolioController {
         portfolioService.buyCoin(request);
 
         return ResponseEntity.ok("Coin purchased successfully");
+    }
+
+
+    @PostMapping("/sell")
+    public ResponseEntity<String> sellCoin(
+            @Valid @RequestBody SellCoinRequest request
+    ) {
+        portfolioService.sellCoin(request);
+        return ResponseEntity.ok("Coin sold successfully");
     }
 }

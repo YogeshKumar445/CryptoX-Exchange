@@ -1,6 +1,7 @@
 package com.cryptox.service.impl;
 
 import com.cryptox.dto.request.BuyCoinRequest;
+import com.cryptox.dto.request.SellCoinRequest;
 import com.cryptox.dto.response.PortfolioResponse;
 import com.cryptox.entity.*;
 import com.cryptox.enums.TransactionType;
@@ -30,6 +31,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     private final TransactionRepository transactionRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<PortfolioResponse> getMyPortfolio() {
 
         User currentUser = authenticationService.getCurrentUser();
@@ -133,6 +135,57 @@ public class PortfolioServiceImpl implements PortfolioService {
                 .price(BigDecimal.valueOf(coin.getCurrentPrice()))
                 .amount(totalCost)
                 .type(TransactionType.BUY)
+                .build();
+
+        transactionRepository.save(transaction);
+    }
+
+    @Override
+    @Transactional
+    public void sellCoin(SellCoinRequest request) {
+
+        User currentUser = authenticationService.getCurrentUser();
+
+        Coin coin = coinRepository.findById(request.getCoinId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Coin not found"));
+
+        Portfolio portfolio = portfolioRepository
+                .findByUserAndCoin(currentUser, coin)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Coin not found in portfolio"));
+
+        if (portfolio.getQuantity() < request.getQuantity()) {
+            throw new IllegalArgumentException("Insufficient coin quantity");
+        }
+
+        Wallet wallet = walletRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Wallet not found"));
+
+        BigDecimal sellAmount = BigDecimal.valueOf(
+                request.getQuantity() * coin.getCurrentPrice()
+        );
+
+        wallet.setBalance(wallet.getBalance().add(sellAmount));
+        walletRepository.save(wallet);
+
+        double remainingQuantity = portfolio.getQuantity() - request.getQuantity();
+
+        if (remainingQuantity <= 0.00000001) {
+            portfolioRepository.delete(portfolio);
+        } else {
+            portfolio.setQuantity(remainingQuantity);
+            portfolioRepository.save(portfolio);
+        }
+
+        Transaction transaction = Transaction.builder()
+                .user(currentUser)
+                .coin(coin)
+                .quantity(request.getQuantity())
+                .price(BigDecimal.valueOf(coin.getCurrentPrice()))
+                .amount(sellAmount)
+                .type(TransactionType.SELL)
                 .build();
 
         transactionRepository.save(transaction);
