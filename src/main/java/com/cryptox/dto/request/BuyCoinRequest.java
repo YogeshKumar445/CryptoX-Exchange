@@ -1,6 +1,6 @@
 package com.cryptox.dto.request;
 
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,7 +13,11 @@ public class BuyCoinRequest {
     private Long coinId;
 
     @NotNull(message = "Quantity is required")
-    @Min(value = 1, message = "Quantity must be greater than 0")
+    @DecimalMin(
+            value = "0.00000001",
+            inclusive = true,
+            message = "Quantity must be greater than zero"
+    )
     private Double quantity;
 
 }
