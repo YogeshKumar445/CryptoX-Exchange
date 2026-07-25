@@ -1,0 +1,40 @@
+services:
+
+  mysql:
+    image: mysql:8.4
+    container_name: cryptox-mysql
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: cryptox-backend
+
+    depends_on:
+      - mysql
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
