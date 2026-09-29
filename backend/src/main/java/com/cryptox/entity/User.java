@@ -41,6 +41,12 @@ public class User {
     @Column(nullable = false)
     private Boolean active = true;
 
+    @Column(nullable = false)
+    private Integer failedLoginAttempts = 0;
+
+    @Column
+    private LocalDateTime lockedUntil;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

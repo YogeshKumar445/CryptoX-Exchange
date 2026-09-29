@@ -9,6 +9,7 @@ import com.cryptox.enums.UserRole;
 import com.cryptox.exception.ResourceAlreadyExistsException;
 import com.cryptox.exception.ResourceNotFoundException;
 import com.cryptox.exception.AccountDisabledException;
+import com.cryptox.exception.AccountLockedException;
 import com.cryptox.repository.UserRepository;
 import com.cryptox.security.jwt.JwtService;
 import com.cryptox.service.AuthService;
@@ -61,6 +62,9 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCK_DURATION_MINUTES = 15;
+
     @Override
     public ApiResponse login(LoginRequest request) {
 
@@ -68,7 +72,39 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Invalid email or password"));
 
+        // Check if account is currently locked
+        if (user.getLockedUntil() != null &&
+                user.getLockedUntil().isAfter(LocalDateTime.now())) {
+
+            long minutesLeft = java.time.Duration.between(
+                    LocalDateTime.now(), user.getLockedUntil()
+            ).toMinutes() + 1;
+
+            throw new AccountLockedException(
+                    "Account temporarily locked due to multiple failed login attempts. " +
+                            "Try again after " + minutesLeft + " minute(s)."
+            );
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+
+            int attempts = user.getFailedLoginAttempts() + 1;
+            user.setFailedLoginAttempts(attempts);
+
+            if (attempts >= MAX_FAILED_ATTEMPTS) {
+                user.setLockedUntil(
+                        LocalDateTime.now().plusMinutes(LOCK_DURATION_MINUTES)
+                );
+                user.setFailedLoginAttempts(0);
+                userRepository.save(user);
+
+                throw new AccountLockedException(
+                        "Too many failed login attempts. Account locked for " +
+                                LOCK_DURATION_MINUTES + " minutes."
+                );
+            }
+
+            userRepository.save(user);
             throw new ResourceNotFoundException("Invalid email or password");
         }
 
@@ -78,7 +114,15 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
+        // Successful login - reset failed attempts
+        if (user.getFailedLoginAttempts() > 0 || user.getLockedUntil() != null) {
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+            userRepository.save(user);
+        }
+
         String token = jwtService.generateToken(user.getEmail());
+
         LoginResponse response = LoginResponse.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
