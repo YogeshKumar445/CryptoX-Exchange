@@ -8,6 +8,7 @@ import com.cryptox.entity.User;
 import com.cryptox.enums.UserRole;
 import com.cryptox.exception.ResourceAlreadyExistsException;
 import com.cryptox.exception.ResourceNotFoundException;
+import com.cryptox.exception.AccountDisabledException;
 import com.cryptox.repository.UserRepository;
 import com.cryptox.security.jwt.JwtService;
 import com.cryptox.service.AuthService;
@@ -71,8 +72,13 @@ public class AuthServiceImpl implements AuthService {
             throw new ResourceNotFoundException("Invalid email or password");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        if (!user.getActive()) {
+            throw new AccountDisabledException(
+                    "Your account has been disabled. Please contact support."
+            );
+        }
 
+        String token = jwtService.generateToken(user.getEmail());
         LoginResponse response = LoginResponse.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
