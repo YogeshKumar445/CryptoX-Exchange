@@ -205,10 +205,10 @@ function Market({ onBack, onOpenPortfolio }) {
                         : "Purchase completed successfully."
                 );
             } else if (tradeType === "sell") {
-                const response = await sellCoin(
-                    selectedCoin.id,
-                    parsedQuantity
-                );
+                const response = await sellCoin({
+                    coinId: selectedCoin.id,
+                    quantity: parsedQuantity,
+                });
 
                 setTradeMessage(
                     typeof response === "string"
