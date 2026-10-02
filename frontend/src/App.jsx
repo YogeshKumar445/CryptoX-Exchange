@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Wallet from "./pages/Wallet";
 import Transactions from "./pages/Transactions";
@@ -13,6 +14,7 @@ function App() {
     );
 
     const [page, setPage] = useState("dashboard");
+    const [authView, setAuthView] = useState("login");
 
     const handleLogin = () => {
         setLoggedIn(true);
@@ -24,13 +26,23 @@ function App() {
         localStorage.removeItem("user");
 
         setLoggedIn(false);
+        setAuthView("login");
         setPage("dashboard");
     };
 
     if (!loggedIn) {
+        if (authView === "register") {
+            return (
+                <Register
+                    onGoToLogin={() => setAuthView("login")}
+                />
+            );
+        }
+
         return (
             <Login
                 onLogin={handleLogin}
+                onGoToRegister={() => setAuthView("register")}
             />
         );
     }

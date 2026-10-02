@@ -206,7 +206,7 @@ function Login({ onLogin, onGoToRegister }) {
                         type="submit"
                         disabled={loading}
                         className="
-                            w-full
+                            w-full cursor-pointer
                             bg-blue-600
                             hover:bg-blue-700
                             disabled:bg-blue-800
@@ -245,6 +245,7 @@ function Login({ onLogin, onGoToRegister }) {
                             type="button"
                             onClick={onGoToRegister}
                             className="
+                                cursor-pointer
                                 text-blue-400
                                 hover:text-blue-300
                                 font-semibold

@@ -72,7 +72,13 @@ function Register({ onGoToLogin }) {
             setRegistrationSuccessful(false);
 
             if (error.response) {
+                const fieldErrors = error.response.data?.data;
+                const firstFieldError = fieldErrors
+                    ? Object.values(fieldErrors)[0]
+                    : null;
+
                 setError(
+                    firstFieldError ||
                     error.response.data?.message ||
                     "Registration failed."
                 );
@@ -332,6 +338,7 @@ function Register({ onGoToLogin }) {
                         type="submit"
                         disabled={loading}
                         className="
+                            cursor-pointer
                             w-full
                             rounded-xl
                             bg-blue-600
@@ -380,6 +387,7 @@ function Register({ onGoToLogin }) {
                         type="button"
                         onClick={onGoToLogin}
                         className="
+                            cursor-pointer
                             mt-5
                             w-full
                             rounded-xl
@@ -406,6 +414,7 @@ function Register({ onGoToLogin }) {
                             type="button"
                             onClick={onGoToLogin}
                             className="
+                                cursor-pointer
                                 font-semibold
                                 text-blue-400
                                 hover:text-blue-300
