@@ -106,4 +106,23 @@ public class JwtService {
                 && !isTokenExpired(token);
     }
 
+
+    public String generateTwoFactorPendingToken(String email) {
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("purpose", "2fa_pending");
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(email)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 300000)) // 5 minutes
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public String extractPurpose(String token) {
+        return extractClaim(token, claims -> (String) claims.get("purpose"));
+    }
+
 }

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import com.cryptox.service.WalletService;
+import com.cryptox.dto.response.TwoFactorChallengeResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -119,6 +120,22 @@ public class AuthServiceImpl implements AuthService {
             user.setFailedLoginAttempts(0);
             user.setLockedUntil(null);
             userRepository.save(user);
+        }
+
+        if (user.getTwoFactorEnabled()) {
+
+            String tempToken = jwtService.generateTwoFactorPendingToken(user.getEmail());
+
+            TwoFactorChallengeResponse challenge = TwoFactorChallengeResponse.builder()
+                    .tempToken(tempToken)
+                    .build();
+
+            return ApiResponse.builder()
+                    .success(true)
+                    .message("Two-factor authentication code required")
+                    .data(challenge)
+                    .timestamp(LocalDateTime.now())
+                    .build();
         }
 
         String token = jwtService.generateToken(user.getEmail());

@@ -1,10 +1,13 @@
 package com.cryptox.controller;
 
+import com.cryptox.dto.request.TwoFactorLoginVerifyRequest;
 import com.cryptox.dto.request.TwoFactorVerifyRequest;
 import com.cryptox.dto.response.ApiResponse;
+import com.cryptox.dto.response.LoginResponse;
 import com.cryptox.dto.response.TwoFactorSetupResponse;
 import com.cryptox.entity.User;
 import com.cryptox.repository.UserRepository;
+import com.cryptox.security.jwt.JwtService;
 import com.cryptox.service.TwoFactorAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ public class TwoFactorAuthController {
 
     private final TwoFactorAuthService twoFactorAuthService;
     private final UserRepository userRepository;
+    private final JwtService jwtService;
 
     @PostMapping("/setup")
     public ApiResponse setup(Authentication authentication) {
@@ -89,6 +93,72 @@ public class TwoFactorAuthController {
                 .success(true)
                 .message("Two-factor authentication enabled successfully.")
                 .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @PostMapping("/login-verify")
+    public ApiResponse loginVerify(
+            @Valid @RequestBody TwoFactorLoginVerifyRequest request
+    ) {
+
+        String purpose;
+        String email;
+
+        try {
+            purpose = jwtService.extractPurpose(request.getTempToken());
+            email = jwtService.extractUsername(request.getTempToken());
+        } catch (Exception e) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Invalid or expired session. Please login again.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        if (!"2fa_pending".equals(purpose)) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Invalid session token.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        boolean isValid = twoFactorAuthService.verifyCode(
+                user.getTwoFactorSecret(),
+                request.getCode()
+        );
+
+        if (!isValid) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Invalid or expired code. Please try again.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        String token = jwtService.generateToken(user.getEmail());
+
+        LoginResponse response = LoginResponse.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .token(token)
+                .build();
+
+        return ApiResponse.builder()
+                .success(true)
+                .message("Login successful")
+                .data(response)
                 .timestamp(LocalDateTime.now())
                 .build();
     }
