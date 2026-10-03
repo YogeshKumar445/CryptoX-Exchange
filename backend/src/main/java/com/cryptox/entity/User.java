@@ -49,6 +49,13 @@ public class User {
     @Column
     private LocalDateTime lockedUntil;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean twoFactorEnabled = false;
+
+    @Column(length = 512)
+    private String twoFactorSecret;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
