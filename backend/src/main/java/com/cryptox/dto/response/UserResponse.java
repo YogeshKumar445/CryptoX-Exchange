@@ -30,6 +30,8 @@ public class UserResponse {
 
     private Boolean active;
 
+    private Boolean twoFactorEnabled;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

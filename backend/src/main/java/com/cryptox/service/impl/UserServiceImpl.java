@@ -81,6 +81,7 @@ public class UserServiceImpl implements UserService {
                 .phone(user.getPhone())
                 .role(user.getRole())
                 .active(user.getActive())
+                .twoFactorEnabled(user.getTwoFactorEnabled())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
