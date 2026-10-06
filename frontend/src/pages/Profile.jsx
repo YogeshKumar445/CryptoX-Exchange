@@ -502,7 +502,20 @@ function Profile({ onBack }) {
 
         try {
             const response = await setupTwoFactor();
-            setTwoFactorData(response?.data);
+
+            if (!response?.success || !response?.data) {
+                setTwoFactorError(
+                    response?.message ||
+                    "Unable to start two-factor setup."
+                );
+                setTwoFactorStep("idle");
+
+                // Profile ka status purana ho sakta hai, isliye refresh karo
+                await loadProfile(true);
+                return;
+            }
+
+            setTwoFactorData(response.data);
             setTwoFactorStep("qr");
         } catch (err) {
             setTwoFactorError(
