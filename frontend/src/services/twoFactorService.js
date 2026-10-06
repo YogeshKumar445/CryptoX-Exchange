@@ -9,3 +9,11 @@ export const verifyTwoFactorSetup = async (code) => {
     const response = await api.post("/auth/2fa/verify", { code });
     return response.data;
 };
+
+export const disableTwoFactor = async (password, code) => {
+    const response = await api.post("/auth/2fa/disable", {
+        password,
+        code,
+    });
+    return response.data;
+};
