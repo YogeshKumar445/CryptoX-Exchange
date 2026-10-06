@@ -40,6 +40,15 @@ public class TwoFactorAuthController {
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
+        if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Two-factor authentication is already enabled. Disable it first to set it up again.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
         TwoFactorSetupResponse setupResponse =
                 twoFactorAuthService.generateSetup(email);
 
