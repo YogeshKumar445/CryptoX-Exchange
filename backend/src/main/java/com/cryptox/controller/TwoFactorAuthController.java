@@ -1,5 +1,6 @@
 package com.cryptox.controller;
 
+import com.cryptox.dto.request.TwoFactorDisableRequest;
 import com.cryptox.dto.request.TwoFactorLoginVerifyRequest;
 import com.cryptox.dto.request.TwoFactorVerifyRequest;
 import com.cryptox.dto.response.ApiResponse;
@@ -12,6 +13,7 @@ import com.cryptox.service.TwoFactorAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +29,7 @@ public class TwoFactorAuthController {
     private final TwoFactorAuthService twoFactorAuthService;
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/setup")
     public ApiResponse setup(Authentication authentication) {
@@ -92,6 +95,62 @@ public class TwoFactorAuthController {
         return ApiResponse.builder()
                 .success(true)
                 .message("Two-factor authentication enabled successfully.")
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @PostMapping("/disable")
+    public ApiResponse disable(
+            @Valid @RequestBody TwoFactorDisableRequest request,
+            Authentication authentication
+    ) {
+
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        if (!Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Two-factor authentication is not enabled.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Incorrect password.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        boolean isValid = twoFactorAuthService.verifyCode(
+                user.getTwoFactorSecret(),
+                request.getCode()
+        );
+
+        if (!isValid) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Invalid or expired code. Please try again.")
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        }
+
+        user.setTwoFactorEnabled(false);
+        user.setTwoFactorSecret(null);
+        userRepository.save(user);
+
+        return ApiResponse.builder()
+                .success(true)
+                .message("Two-factor authentication disabled successfully.")
                 .data(null)
                 .timestamp(LocalDateTime.now())
                 .build();
