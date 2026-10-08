@@ -56,6 +56,9 @@ public class User {
     @Column(length = 512)
     private String twoFactorSecret;
 
+    @Column(length = 100)
+    private String transactionPinHash;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
