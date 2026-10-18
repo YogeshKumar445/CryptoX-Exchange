@@ -8,6 +8,7 @@ import {
     verifyTwoFactorSetup,
     disableTwoFactor,
 } from "../services/twoFactorService";
+import { getPinStatus, setTransactionPin } from "../services/pinService";
 
 /* ---------- Small reusable pieces ---------- */
 
@@ -91,9 +92,17 @@ function Alert({ type, children, onClose }) {
         </div>
     );
 }
-function OtpInput({ value, onChange, disabled = false, autoFocus = false }) {
+
+function OtpInput({
+                      value,
+                      onChange,
+                      length = 6,
+                      mask = false,
+                      disabled = false,
+                      autoFocus = false,
+                  }) {
     const inputsRef = useRef([]);
-    const digits = Array.from({ length: 6 }, (_, i) => value[i] || "");
+    const digits = Array.from({ length }, (_, i) => value[i] || "");
 
     useEffect(() => {
         if (autoFocus) {
@@ -102,7 +111,7 @@ function OtpInput({ value, onChange, disabled = false, autoFocus = false }) {
     }, [autoFocus]);
 
     const focusAt = (index) => {
-        const safeIndex = Math.max(0, Math.min(5, index));
+        const safeIndex = Math.max(0, Math.min(length - 1, index));
         inputsRef.current[safeIndex]?.focus();
     };
 
@@ -125,7 +134,7 @@ function OtpInput({ value, onChange, disabled = false, autoFocus = false }) {
             value.slice(0, position) +
             chars +
             value.slice(position + 1)
-        ).slice(0, 6);
+        ).slice(0, length);
 
         onChange(next);
         focusAt(position + chars.length);
@@ -156,7 +165,7 @@ function OtpInput({ value, onChange, disabled = false, autoFocus = false }) {
         const pasted = event.clipboardData
             .getData("text")
             .replace(/\D/g, "")
-            .slice(0, 6);
+            .slice(0, length);
 
         if (!pasted) {
             return;
@@ -178,9 +187,9 @@ function OtpInput({ value, onChange, disabled = false, autoFocus = false }) {
                     ref={(element) => {
                         inputsRef.current[index] = element;
                     }}
-                    type="text"
+                    type={mask ? "password" : "text"}
                     inputMode="numeric"
-                    autoComplete="one-time-code"
+                    autoComplete={mask ? "off" : "one-time-code"}
                     value={digit}
                     disabled={disabled}
                     onChange={(event) => handleChange(index, event)}
@@ -258,6 +267,16 @@ function Profile({ onBack }) {
     const [showPassword, setShowPassword] = useState(false);
     const [disabling, setDisabling] = useState(false);
 
+    const [hasPin, setHasPin] = useState(null);
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pinPassword, setPinPassword] = useState("");
+    const [pinValue, setPinValue] = useState("");
+    const [pinConfirm, setPinConfirm] = useState("");
+    const [pinError, setPinError] = useState("");
+    const [pinSuccess, setPinSuccess] = useState("");
+    const [pinSaving, setPinSaving] = useState(false);
+    const [showPinPassword, setShowPinPassword] = useState(false);
+
     const loadProfile = async (silent = false) => {
         try {
             if (!silent) {
@@ -295,8 +314,18 @@ function Profile({ onBack }) {
         }
     };
 
+    const loadPinStatus = async () => {
+        try {
+            const response = await getPinStatus();
+            setHasPin(Boolean(response?.data?.hasTransactionPin));
+        } catch (err) {
+            console.error("PIN status fetch error:", err);
+        }
+    };
+
     useEffect(() => {
         loadProfile();
+        loadPinStatus();
     }, []);
 
     // Success messages 5 second baad khud hat jayein
@@ -318,7 +347,16 @@ function Profile({ onBack }) {
         return () => clearTimeout(timer);
     }, [twoFactorSuccess]);
 
-    // Modal: Esc se band karo
+    useEffect(() => {
+        if (!pinSuccess) {
+            return undefined;
+        }
+
+        const timer = setTimeout(() => setPinSuccess(""), 5000);
+        return () => clearTimeout(timer);
+    }, [pinSuccess]);
+
+    // Disable 2FA modal: Esc se band karo
     useEffect(() => {
         if (!showDisableModal) {
             return undefined;
@@ -337,6 +375,27 @@ function Profile({ onBack }) {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [showDisableModal, disabling]);
+
+    // PIN modal: Esc se band karo
+    useEffect(() => {
+        if (!showPinModal) {
+            return undefined;
+        }
+
+        const onKeyDown = (event) => {
+            if (event.key === "Escape" && !pinSaving) {
+                setShowPinModal(false);
+                setPinPassword("");
+                setPinValue("");
+                setPinConfirm("");
+                setPinError("");
+                setShowPinPassword(false);
+            }
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [showPinModal, pinSaving]);
 
     /* ----- Profile edit ----- */
 
@@ -664,6 +723,86 @@ function Profile({ onBack }) {
         }
     };
 
+    /* ----- Transaction PIN ----- */
+
+    const openPinModal = () => {
+        setPinSuccess("");
+        setPinPassword("");
+        setPinValue("");
+        setPinConfirm("");
+        setPinError("");
+        setShowPinPassword(false);
+        setShowPinModal(true);
+    };
+
+    const closePinModal = () => {
+        if (pinSaving) {
+            return;
+        }
+
+        setShowPinModal(false);
+        setPinPassword("");
+        setPinValue("");
+        setPinConfirm("");
+        setPinError("");
+        setShowPinPassword(false);
+    };
+
+    const handleSetPin = async (event) => {
+        event.preventDefault();
+
+        if (!pinPassword) {
+            setPinError("Password is required.");
+            return;
+        }
+
+        if (pinValue.length !== 4) {
+            setPinError("PIN must be exactly 4 digits.");
+            return;
+        }
+
+        if (pinValue !== pinConfirm) {
+            setPinError("PIN and confirm PIN do not match.");
+            setPinConfirm("");
+            return;
+        }
+
+        setPinError("");
+
+        try {
+            setPinSaving(true);
+
+            const response = await setTransactionPin(pinPassword, pinValue);
+
+            if (!response?.success) {
+                setPinError(
+                    response?.message ||
+                    "Unable to save transaction PIN."
+                );
+                return;
+            }
+
+            setShowPinModal(false);
+            setPinPassword("");
+            setPinValue("");
+            setPinConfirm("");
+            setShowPinPassword(false);
+            setHasPin(true);
+
+            setPinSuccess(
+                response?.message ||
+                "Transaction PIN saved successfully."
+            );
+        } catch (err) {
+            setPinError(
+                err.response?.data?.message ||
+                "Unable to save transaction PIN."
+            );
+        } finally {
+            setPinSaving(false);
+        }
+    };
+
     /* ----- Helpers ----- */
 
     const formatDate = (date) => {
@@ -747,8 +886,8 @@ function Profile({ onBack }) {
         },
         {
             label: "Transaction PIN for buy/sell",
-            done: false,
-            soon: true,
+            done: hasPin === true,
+            soon: false,
         },
         {
             label: "OTP for withdrawals",
@@ -1142,6 +1281,93 @@ function Profile({ onBack }) {
                             </div>
                         </div>
 
+                        {/* Transaction PIN card */}
+                        <div className="rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/20 via-slate-700/20 to-emerald-500/20 animate-fade-in-up">
+                            <div className="bg-[#0b1324] border border-slate-800/60 rounded-2xl p-7 md:p-9">
+
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div
+                                            className={`flex h-12 w-12 items-center justify-center rounded-xl border shrink-0 transition ${
+                                                hasPin
+                                                    ? "bg-emerald-500/10 border-emerald-500/30"
+                                                    : "bg-slate-800/60 border-slate-700"
+                                            }`}
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                className={`h-6 w-6 ${
+                                                    hasPin
+                                                        ? "text-emerald-400"
+                                                        : "text-slate-400"
+                                                }`}
+                                            >
+                                                <rect x="3" y="5" width="18" height="14" rx="2" />
+                                                <path d="M7 10h.01M12 10h.01M17 10h.01M7 14h10" />
+                                            </svg>
+                                        </div>
+
+                                        <div>
+                                            <h3 className="text-2xl font-bold">
+                                                Transaction PIN
+                                            </h3>
+
+                                            <p className="text-slate-400 mt-1">
+                                                A 4-digit PIN to confirm every buy and sell.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <span
+                                        className={`inline-flex px-3 py-1 rounded-full border text-sm font-semibold whitespace-nowrap ${
+                                            hasPin
+                                                ? "bg-emerald-950/60 text-emerald-400 border-emerald-800/60"
+                                                : "bg-slate-800/60 text-slate-400 border-slate-700"
+                                        }`}
+                                    >
+                                        {hasPin === null
+                                            ? "Checking..."
+                                            : hasPin
+                                                ? "PIN set"
+                                                : "Not set"}
+                                    </span>
+                                </div>
+
+                                {pinSuccess && (
+                                    <div className="mt-6">
+                                        <Alert
+                                            type="success"
+                                            onClose={() => setPinSuccess("")}
+                                        >
+                                            {pinSuccess}
+                                        </Alert>
+                                    </div>
+                                )}
+
+                                <p className="mt-6 text-slate-400 text-sm">
+                                    {hasPin
+                                        ? "Your PIN is required on every buy and sell. After 5 wrong attempts, the PIN is locked for 15 minutes."
+                                        : "Set a PIN to start buying and selling coins. You will be asked for it on every trade."}
+                                </p>
+
+                                {hasPin !== null && (
+                                    <button
+                                        type="button"
+                                        onClick={openPinModal}
+                                        className="mt-5 cursor-pointer bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 hover:-translate-y-0.5 active:translate-y-0 px-6 py-3 rounded-xl font-semibold transition shadow-lg shadow-emerald-600/10"
+                                    >
+                                        {hasPin
+                                            ? "Change Transaction PIN"
+                                            : "Set Transaction PIN"}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Two-Factor Authentication card */}
                         <div className="rounded-2xl p-[1px] bg-gradient-to-br from-emerald-500/20 via-slate-700/20 to-blue-500/20 animate-fade-in-up">
                             <div className="bg-[#0b1324] border border-slate-800/60 rounded-2xl p-7 md:p-9">
@@ -1379,6 +1605,162 @@ function Profile({ onBack }) {
                     </div>
                 </div>
             </main>
+
+            {/* Transaction PIN modal */}
+            {showPinModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center px-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="pin-modal-title"
+                >
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
+                        onClick={closePinModal}
+                    />
+
+                    <div className="relative w-full max-w-md rounded-2xl p-[1px] bg-gradient-to-br from-blue-500/40 via-slate-700/30 to-emerald-500/40 animate-pop-in">
+                        <form
+                            onSubmit={handleSetPin}
+                            className="bg-[#0b1324] rounded-2xl p-7"
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3
+                                        id="pin-modal-title"
+                                        className="text-xl font-bold"
+                                    >
+                                        {hasPin
+                                            ? "Change Transaction PIN"
+                                            : "Set Transaction PIN"}
+                                    </h3>
+
+                                    <p className="text-slate-400 text-sm mt-2">
+                                        Confirm your account password, then choose a 4-digit PIN.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={closePinModal}
+                                    disabled={pinSaving}
+                                    aria-label="Close"
+                                    className="cursor-pointer text-2xl leading-none text-slate-500 hover:text-white transition disabled:opacity-50"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {pinError && (
+                                <div className="mt-5">
+                                    <Alert
+                                        type="error"
+                                        onClose={() => setPinError("")}
+                                    >
+                                        {pinError}
+                                    </Alert>
+                                </div>
+                            )}
+
+                            <div className="mt-5">
+                                <label
+                                    htmlFor="pinPassword"
+                                    className="block text-slate-300 mb-2 text-sm font-medium tracking-wide"
+                                >
+                                    ACCOUNT PASSWORD
+                                </label>
+
+                                <div className="relative">
+                                    <input
+                                        id="pinPassword"
+                                        type={showPinPassword ? "text" : "password"}
+                                        value={pinPassword}
+                                        onChange={(e) =>
+                                            setPinPassword(e.target.value)
+                                        }
+                                        autoComplete="current-password"
+                                        disabled={pinSaving}
+                                        autoFocus
+                                        required
+                                        className={`${inputClass} pr-12`}
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowPinPassword((previous) => !previous)
+                                        }
+                                        aria-label={
+                                            showPinPassword
+                                                ? "Hide password"
+                                                : "Show password"
+                                        }
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-white transition"
+                                    >
+                                        <EyeIcon off={showPinPassword} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mt-5">
+                                <label className="block text-slate-300 mb-3 text-sm font-medium tracking-wide">
+                                    NEW 4-DIGIT PIN
+                                </label>
+
+                                <OtpInput
+                                    value={pinValue}
+                                    onChange={setPinValue}
+                                    length={4}
+                                    mask
+                                    disabled={pinSaving}
+                                />
+                            </div>
+
+                            <div className="mt-5">
+                                <label className="block text-slate-300 mb-3 text-sm font-medium tracking-wide">
+                                    CONFIRM PIN
+                                </label>
+
+                                <OtpInput
+                                    value={pinConfirm}
+                                    onChange={setPinConfirm}
+                                    length={4}
+                                    mask
+                                    disabled={pinSaving}
+                                />
+                            </div>
+
+                            <div className="mt-7 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={closePinModal}
+                                    disabled={pinSaving}
+                                    className="cursor-pointer border border-slate-700 hover:bg-slate-800 px-6 py-3 rounded-xl font-semibold transition disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        pinSaving ||
+                                        !pinPassword ||
+                                        pinValue.length !== 4 ||
+                                        pinConfirm.length !== 4
+                                    }
+                                    className="cursor-pointer bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold transition"
+                                >
+                                    {pinSaving
+                                        ? "Saving..."
+                                        : hasPin
+                                            ? "Change PIN"
+                                            : "Save PIN"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Disable 2FA modal */}
             {showDisableModal && (
