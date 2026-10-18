@@ -6,23 +6,22 @@ export const getMyPortfolio = async () => {
     return response.data;
 };
 
-export const buyCoin = async (coinId, quantity) => {
-    const response = await api.post(
-        "/portfolio/buy",
-        {
-            coinId,
-            quantity,
-        }
-    );
+export const buyCoin = async (coinId, quantity, pin) => {
+    const response = await api.post("/portfolio/buy", {
+        coinId,
+        quantity,
+        pin,
+    });
 
     return response.data;
 };
 
-export const sellCoin = async (data) => {
-    const response = await api.post(
-        "/portfolio/sell",
-        data
-    );
+export const sellCoin = async ({ coinId, quantity, pin }) => {
+    const response = await api.post("/portfolio/sell", {
+        coinId,
+        quantity,
+        pin,
+    });
 
     return response.data;
 };
