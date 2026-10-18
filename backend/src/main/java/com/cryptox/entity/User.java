@@ -59,6 +59,13 @@ public class User {
     @Column(length = 100)
     private String transactionPinHash;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer pinFailedAttempts = 0;
+
+    @Column
+    private LocalDateTime pinLockedUntil;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
