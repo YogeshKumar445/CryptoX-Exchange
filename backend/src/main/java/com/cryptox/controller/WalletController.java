@@ -3,6 +3,8 @@ package com.cryptox.controller;
 import com.cryptox.dto.request.DepositRequest;
 import com.cryptox.dto.request.WithdrawRequest;
 import com.cryptox.dto.response.ApiResponse;
+import com.cryptox.service.OtpVerificationService;
+import com.cryptox.service.TransactionPinService;
 import com.cryptox.service.WalletService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 public class WalletController {
 
     private final WalletService walletService;
+    private final TransactionPinService transactionPinService;
+    private final OtpVerificationService otpVerificationService;
 
     @GetMapping("/me")
     public ApiResponse getMyWallet(Authentication authentication) {
@@ -44,6 +48,16 @@ public class WalletController {
 
         String email = authentication.getName();
 
+        // 1. 2FA enabled hona zaroori hai
+        otpVerificationService.ensureTwoFactorEnabled(email);
+
+        // 2. Transaction PIN
+        transactionPinService.verifyPin(email, request.getPin());
+
+        // 3. Authenticator code
+        otpVerificationService.verifyOtp(email, request.getCode());
+
+        // 4. Ab paisa nikalo
         return walletService.withdraw(
                 email,
                 request.getAmount()

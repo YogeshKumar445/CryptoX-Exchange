@@ -56,6 +56,13 @@ public class User {
     @Column(length = 512)
     private String twoFactorSecret;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer otpFailedAttempts = 0;
+
+    @Column
+    private LocalDateTime otpLockedUntil;
+
     @Column(length = 100)
     private String transactionPinHash;
 
