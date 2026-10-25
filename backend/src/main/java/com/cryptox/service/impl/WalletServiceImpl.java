@@ -66,7 +66,6 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public ApiResponse deposit(String email, BigDecimal amount) {
-        System.out.println(">>> Deposit method called");
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -79,7 +78,6 @@ public class WalletServiceImpl implements WalletService {
         wallet.setBalance(wallet.getBalance().add(amount));
 
         walletRepository.save(wallet);
-        System.out.println(">>> Before saveTransaction");
 
         transactionService.saveTransaction(
                 user,
