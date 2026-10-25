@@ -93,12 +93,17 @@ public class JwtService {
     }
 
     // ==========================
-    // Validate Token
+    // Validate Token (sirf asli login token valid hai)
     // ==========================
     public boolean isTokenValid(
             String token,
             UserDetails userDetails
     ) {
+
+        // 2FA ke tempToken jaise "purpose" wale tokens API access ke liye valid nahi hain
+        if (isTwoFactorPendingToken(token)) {
+            return false;
+        }
 
         final String username = extractUsername(token);
 
@@ -123,6 +128,11 @@ public class JwtService {
 
     public String extractPurpose(String token) {
         return extractClaim(token, claims -> (String) claims.get("purpose"));
+    }
+
+    // True agar token mein koi "purpose" claim hai (yaani yeh asli login token nahi hai)
+    public boolean isTwoFactorPendingToken(String token) {
+        return extractPurpose(token) != null;
     }
 
 }

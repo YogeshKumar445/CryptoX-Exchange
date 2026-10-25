@@ -43,6 +43,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String jwt = authHeader.substring(7);
 
         try {
+            // 2FA ka tempToken sirf /api/auth/2fa/login-verify ke body mein chalta hai,
+            // Authorization header mein nahi. Isliye yahan se aage authenticate nahi hoga.
+            if (jwtService.isTwoFactorPendingToken(jwt)) {
+                log.warn("2FA pending token rejected as Bearer token for {}",
+                        request.getRequestURI());
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String email = jwtService.extractUsername(jwt);
 
             if (email != null &&
