@@ -7,8 +7,10 @@ import com.cryptox.dto.response.ApiResponse;
 import com.cryptox.dto.response.LoginResponse;
 import com.cryptox.dto.response.TwoFactorSetupResponse;
 import com.cryptox.entity.User;
+import com.cryptox.exception.AccountLockedException;
 import com.cryptox.repository.UserRepository;
 import com.cryptox.security.jwt.JwtService;
+import com.cryptox.service.OtpVerificationService;
 import com.cryptox.service.TwoFactorAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +29,19 @@ import java.time.LocalDateTime;
 public class TwoFactorAuthController {
 
     private final TwoFactorAuthService twoFactorAuthService;
+    private final OtpVerificationService otpVerificationService;
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+
+    private ApiResponse failure(String message) {
+        return ApiResponse.builder()
+                .success(false)
+                .message(message)
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
 
     @PostMapping("/setup")
     public ApiResponse setup(Authentication authentication) {
@@ -122,40 +134,27 @@ public class TwoFactorAuthController {
                         new RuntimeException("User not found"));
 
         if (!Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Two-factor authentication is not enabled.")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            return failure("Two-factor authentication is not enabled.");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Incorrect password.")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            return failure("Incorrect password.");
         }
 
-        boolean isValid = twoFactorAuthService.verifyCode(
-                user.getTwoFactorSecret(),
-                request.getCode()
-        );
-
-        if (!isValid) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Invalid or expired code. Please try again.")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+        try {
+            otpVerificationService.verifyOtp(email, request.getCode());
+        } catch (IllegalArgumentException | AccountLockedException e) {
+            return failure(e.getMessage());
         }
 
-        user.setTwoFactorEnabled(false);
-        user.setTwoFactorSecret(null);
-        userRepository.save(user);
+        // verifyOtp ne user ko update kiya ho sakta hai, isliye fresh load
+        User freshUser = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        freshUser.setTwoFactorEnabled(false);
+        freshUser.setTwoFactorSecret(null);
+        userRepository.save(freshUser);
 
         return ApiResponse.builder()
                 .success(true)
@@ -177,40 +176,22 @@ public class TwoFactorAuthController {
             purpose = jwtService.extractPurpose(request.getTempToken());
             email = jwtService.extractUsername(request.getTempToken());
         } catch (Exception e) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Invalid or expired session. Please login again.")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            return failure("Invalid or expired session. Please login again.");
         }
 
         if (!"2fa_pending".equals(purpose)) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Invalid session token.")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            return failure("Invalid session token.");
+        }
+
+        try {
+            otpVerificationService.verifyOtp(email, request.getCode());
+        } catch (IllegalArgumentException | AccountLockedException e) {
+            return failure(e.getMessage());
         }
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
-
-        boolean isValid = twoFactorAuthService.verifyCode(
-                user.getTwoFactorSecret(),
-                request.getCode()
-        );
-
-        if (!isValid) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Invalid or expired code. Please try again.")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
-        }
 
         String token = jwtService.generateToken(user.getEmail());
 

@@ -41,6 +41,7 @@ public class OtpVerificationService {
     }
 
     /**
+     * Login, disable aur withdrawal teeno isi counter ko share karte hain.
      * noRollbackFor zaroori hai: galat code par exception aayegi,
      * par "attempt +1" aur "lock" DB mein save rehna chahiye.
      */
@@ -57,8 +58,7 @@ public class OtpVerificationService {
         if (!Boolean.TRUE.equals(user.getTwoFactorEnabled())
                 || user.getTwoFactorSecret() == null) {
             throw new IllegalArgumentException(
-                    "Two-factor authentication must be enabled to withdraw funds. "
-                            + "Please enable it from your Profile page first."
+                    "Two-factor authentication is not enabled for this account."
             );
         }
 
@@ -101,7 +101,7 @@ public class OtpVerificationService {
                 userRepository.save(user);
 
                 throw new AccountLockedException(
-                        "Too many incorrect authenticator codes. Withdrawals locked for "
+                        "Too many incorrect authenticator codes. Locked for "
                                 + LOCK_MINUTES + " minutes."
                 );
             }
