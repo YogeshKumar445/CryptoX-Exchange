@@ -13,9 +13,11 @@ export const depositMoney = async (amount) => {
     return response.data;
 };
 
-export const withdrawMoney = async (amount) => {
+export const withdrawMoney = async (amount, pin, code) => {
     const response = await api.post("/wallet/withdraw", {
         amount,
+        pin,
+        code,
     });
 
     return response.data;
